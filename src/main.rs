@@ -1,10 +1,10 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::path::PathBuf;
-use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt};
 use tokio::io::BufReader;
+use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt};
 use tokio::process::Command;
 
 #[derive(Parser)]
@@ -14,7 +14,7 @@ struct Cli {
     /// Optional "mcp" argument when invoked as `cargo mcp`
     #[arg(value_name = "SUBCOMMAND")]
     cargo_subcommand: Option<String>,
-    
+
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -98,7 +98,7 @@ impl CargoMcpServer {
                             "description": "Path to the Rust project directory"
                         },
                         "package": {
-                            "type": "string", 
+                            "type": "string",
                             "description": "Optional package name to check (for workspaces)"
                         }
                     },
@@ -152,7 +152,8 @@ impl CargoMcpServer {
             },
             Tool {
                 name: "cargo_fmt_check".to_string(),
-                description: "Check if code is properly formatted without modifying files".to_string(),
+                description: "Check if code is properly formatted without modifying files"
+                    .to_string(),
                 input_schema: json!({
                     "type": "object",
                     "properties": {
@@ -322,9 +323,7 @@ impl CargoMcpServer {
 
     async fn handle_message(&self, message: McpMessage) -> Option<McpResponse> {
         match message {
-            McpMessage::Request(request) => {
-                Some(self.handle_request(request).await)
-            }
+            McpMessage::Request(request) => Some(self.handle_request(request).await),
             McpMessage::Notification(notification) => {
                 self.handle_notification(notification).await;
                 None // Notifications don't get responses
@@ -397,7 +396,7 @@ impl CargoMcpServer {
                         message: "Invalid params".to_string(),
                         data: None,
                     }),
-                }
+                };
             }
         };
 
@@ -413,7 +412,7 @@ impl CargoMcpServer {
                         message: format!("Invalid tool call params: {e}"),
                         data: None,
                     }),
-                }
+                };
             }
         };
 
@@ -429,7 +428,7 @@ impl CargoMcpServer {
                         message: format!("Tool execution failed: {e}"),
                         data: None,
                     }),
-                }
+                };
             }
         };
 
@@ -461,7 +460,10 @@ impl CargoMcpServer {
 
         // Verify it's a Rust project
         if !project_path.join("Cargo.toml").exists() {
-            return Err(anyhow!("Not a Rust project: Cargo.toml not found in {}", path));
+            return Err(anyhow!(
+                "Not a Rust project: Cargo.toml not found in {}",
+                path
+            ));
         }
 
         match tool_call.name.as_str() {
@@ -538,7 +540,11 @@ impl CargoMcpServer {
             cmd.args(["--package", package]);
         }
 
-        if args.get("release").and_then(|r| r.as_bool()).unwrap_or(false) {
+        if args
+            .get("release")
+            .and_then(|r| r.as_bool())
+            .unwrap_or(false)
+        {
             cmd.arg("--release");
         }
 
@@ -576,7 +582,11 @@ impl CargoMcpServer {
             cmd.arg("--dev");
         }
 
-        if args.get("optional").and_then(|o| o.as_bool()).unwrap_or(false) {
+        if args
+            .get("optional")
+            .and_then(|o| o.as_bool())
+            .unwrap_or(false)
+        {
             cmd.arg("--optional");
         }
 
@@ -639,7 +649,11 @@ impl CargoMcpServer {
             cmd.args(["--package", package]);
         }
 
-        if args.get("dry_run").and_then(|d| d.as_bool()).unwrap_or(false) {
+        if args
+            .get("dry_run")
+            .and_then(|d| d.as_bool())
+            .unwrap_or(false)
+        {
             cmd.arg("--dry-run");
         }
 
@@ -661,12 +675,14 @@ impl CargoMcpServer {
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         let mut result = format!("=== {command_name} ===\n");
-        
+
         if output.status.success() {
             result.push_str("✅ Command completed successfully\n\n");
         } else {
-            result.push_str(&format!("❌ Command failed with exit code: {}\n\n", 
-                output.status.code().unwrap_or(-1)));
+            result.push_str(&format!(
+                "❌ Command failed with exit code: {}\n\n",
+                output.status.code().unwrap_or(-1)
+            ));
         }
 
         if !stdout.is_empty() {
@@ -736,7 +752,7 @@ async fn run_server(server: CargoMcpServer) -> Result<()> {
 
                 if let Some(response) = server.handle_message(message).await {
                     let response_json = serde_json::to_string(&response)?;
-                    
+
                     stdout.write_all(response_json.as_bytes()).await?;
                     stdout.write_all(b"\n").await?;
                     stdout.flush().await?;
