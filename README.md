@@ -1,5 +1,9 @@
 # Cargo MCP Server
 
+> [!CAUTION] This repository is written by AI as an experiment. Although I
+> ([jbr](https://github.com/jbr)) review every line, the code quality is not necessarily identical
+> to what I would have written. Caveat usor.
+
 A Model Context Protocol (MCP) server that provides safe access to Cargo operations for Rust projects.
 
 ## Features
