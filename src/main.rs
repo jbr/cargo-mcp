@@ -22,17 +22,32 @@ enum Commands {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+enum McpMessage {
+    Request(McpRequest),
+    Notification(McpNotification),
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 struct McpRequest {
     jsonrpc: String,
-    id: Option<Value>,
+    id: Value, // Requests always have an id
     method: String,
     params: Option<Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+struct McpNotification {
+    jsonrpc: String,
+    method: String,
+    params: Option<Value>,
+    // No id field for notifications
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 struct McpResponse {
     jsonrpc: String,
-    id: Option<Value>,
+    id: Value, // Always present for responses
     #[serde(skip_serializing_if = "Option::is_none")]
     result: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -173,6 +188,18 @@ impl CargoMcpServer {
         Self { tools }
     }
 
+    async fn handle_message(&self, message: McpMessage) -> Option<McpResponse> {
+        match message {
+            McpMessage::Request(request) => {
+                Some(self.handle_request(request).await)
+            }
+            McpMessage::Notification(notification) => {
+                self.handle_notification(notification).await;
+                None // Notifications don't get responses
+            }
+        }
+    }
+
     async fn handle_request(&self, request: McpRequest) -> McpResponse {
         match request.method.as_str() {
             "initialize" => self.handle_initialize(request.id),
@@ -191,7 +218,12 @@ impl CargoMcpServer {
         }
     }
 
-    fn handle_initialize(&self, id: Option<Value>) -> McpResponse {
+    async fn handle_notification(&self, _notification: McpNotification) {
+        // Handle notifications like "notifications/initialized"
+        // For now, we just ignore them since they don't require responses
+    }
+
+    fn handle_initialize(&self, id: Value) -> McpResponse {
         McpResponse {
             jsonrpc: "2.0".to_string(),
             id,
@@ -209,7 +241,7 @@ impl CargoMcpServer {
         }
     }
 
-    fn handle_tools_list(&self, id: Option<Value>) -> McpResponse {
+    fn handle_tools_list(&self, id: Value) -> McpResponse {
         McpResponse {
             jsonrpc: "2.0".to_string(),
             id,
@@ -220,7 +252,7 @@ impl CargoMcpServer {
         }
     }
 
-    async fn handle_tool_call(&self, id: Option<Value>, params: Option<Value>) -> McpResponse {
+    async fn handle_tool_call(&self, id: Value, params: Option<Value>) -> McpResponse {
         let params = match params {
             Some(p) => p,
             None => {
@@ -437,20 +469,21 @@ async fn run_server(server: CargoMcpServer) -> Result<()> {
                     continue;
                 }
 
-                let request: McpRequest = match serde_json::from_str(trimmed) {
-                    Ok(req) => req,
+                let message: McpMessage = match serde_json::from_str(trimmed) {
+                    Ok(msg) => msg,
                     Err(e) => {
-                        eprintln!("Failed to parse request: {}", e);
+                        eprintln!("Failed to parse message: {}", e);
                         continue;
                     }
                 };
 
-                let response = server.handle_request(request).await;
-                let response_json = serde_json::to_string(&response)?;
-                
-                stdout.write_all(response_json.as_bytes()).await?;
-                stdout.write_all(b"\n").await?;
-                stdout.flush().await?;
+                if let Some(response) = server.handle_message(message).await {
+                    let response_json = serde_json::to_string(&response)?;
+                    
+                    stdout.write_all(response_json.as_bytes()).await?;
+                    stdout.write_all(b"\n").await?;
+                    stdout.flush().await?;
+                }
             }
             Err(e) => {
                 eprintln!("Error reading from stdin: {}", e);
