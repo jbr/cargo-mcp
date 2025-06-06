@@ -3,8 +3,8 @@ use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::path::PathBuf;
-use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt};
 use tokio::io::BufReader;
+use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt};
 use tokio::process::Command;
 
 #[derive(Parser)]
@@ -14,7 +14,7 @@ struct Cli {
     /// Optional "mcp" argument when invoked as `cargo mcp`
     #[arg(value_name = "SUBCOMMAND")]
     cargo_subcommand: Option<String>,
-    
+
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -98,7 +98,7 @@ impl CargoMcpServer {
                             "description": "Path to the Rust project directory"
                         },
                         "package": {
-                            "type": "string", 
+                            "type": "string",
                             "description": "Optional package name to check (for workspaces)"
                         }
                     },
@@ -152,7 +152,8 @@ impl CargoMcpServer {
             },
             Tool {
                 name: "cargo_fmt_check".to_string(),
-                description: "Check if code is properly formatted without modifying files".to_string(),
+                description: "Check if code is properly formatted without modifying files"
+                    .to_string(),
                 input_schema: json!({
                     "type": "object",
                     "properties": {
@@ -194,9 +195,7 @@ impl CargoMcpServer {
 
     async fn handle_message(&self, message: McpMessage) -> Option<McpResponse> {
         match message {
-            McpMessage::Request(request) => {
-                Some(self.handle_request(request).await)
-            }
+            McpMessage::Request(request) => Some(self.handle_request(request).await),
             McpMessage::Notification(notification) => {
                 self.handle_notification(notification).await;
                 None // Notifications don't get responses
@@ -282,7 +281,7 @@ impl CargoMcpServer {
                     result: None,
                     error: Some(McpError {
                         code: -32602,
-                        message: format!("Invalid tool call params: {}", e),
+                        message: format!("Invalid tool call params: {e}"),
                         data: None,
                     }),
                 }
@@ -298,7 +297,7 @@ impl CargoMcpServer {
                     result: None,
                     error: Some(McpError {
                         code: -32603,
-                        message: format!("Tool execution failed: {}", e),
+                        message: format!("Tool execution failed: {e}"),
                         data: None,
                     }),
                 }
@@ -333,7 +332,10 @@ impl CargoMcpServer {
 
         // Verify it's a Rust project
         if !project_path.join("Cargo.toml").exists() {
-            return Err(anyhow!("Not a Rust project: Cargo.toml not found in {}", path));
+            return Err(anyhow!(
+                "Not a Rust project: Cargo.toml not found in {}",
+                path
+            ));
         }
 
         match tool_call.name.as_str() {
@@ -406,7 +408,11 @@ impl CargoMcpServer {
             cmd.args(["--package", package]);
         }
 
-        if args.get("release").and_then(|r| r.as_bool()).unwrap_or(false) {
+        if args
+            .get("release")
+            .and_then(|r| r.as_bool())
+            .unwrap_or(false)
+        {
             cmd.arg("--release");
         }
 
@@ -418,13 +424,15 @@ impl CargoMcpServer {
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
-        let mut result = format!("=== {} ===\n", command_name);
-        
+        let mut result = format!("=== {command_name} ===\n");
+
         if output.status.success() {
             result.push_str("✅ Command completed successfully\n\n");
         } else {
-            result.push_str(&format!("❌ Command failed with exit code: {}\n\n", 
-                output.status.code().unwrap_or(-1)));
+            result.push_str(&format!(
+                "❌ Command failed with exit code: {}\n\n",
+                output.status.code().unwrap_or(-1)
+            ));
         }
 
         if !stdout.is_empty() {
@@ -459,7 +467,7 @@ async fn main() -> Result<()> {
             }
         }
         Some(other) => {
-            eprintln!("Unknown subcommand: {}", other);
+            eprintln!("Unknown subcommand: {other}");
             eprintln!("This tool is designed to be used as 'cargo-mcp' or 'cargo mcp serve'");
             std::process::exit(1);
         }
@@ -487,21 +495,21 @@ async fn run_server(server: CargoMcpServer) -> Result<()> {
                 let message: McpMessage = match serde_json::from_str(trimmed) {
                     Ok(msg) => msg,
                     Err(e) => {
-                        eprintln!("Failed to parse message: {}", e);
+                        eprintln!("Failed to parse message: {e}");
                         continue;
                     }
                 };
 
                 if let Some(response) = server.handle_message(message).await {
                     let response_json = serde_json::to_string(&response)?;
-                    
+
                     stdout.write_all(response_json.as_bytes()).await?;
                     stdout.write_all(b"\n").await?;
                     stdout.flush().await?;
                 }
             }
             Err(e) => {
-                eprintln!("Error reading from stdin: {}", e);
+                eprintln!("Error reading from stdin: {e}");
                 break;
             }
         }
