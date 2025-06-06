@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "cargo-mcp": {
-      "command": "/Users/jbr/code/cargo-mcp/target/release/cargo-mcp",
+      "command": "cargo-mcp",
       "args": ["serve"]
     }
   }

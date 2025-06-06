@@ -1,7 +1,15 @@
 [package]
 name = "cargo-mcp"
 version = "0.1.0"
-edition = "2021"
+authors = ["Jacob Rothstein <hi@jbr.me>", "Anthropic Claude Sonnet 4"]
+edition = "2024"
+description = "mcp server for cargo commands"
+readme = "README.md"
+repository = "https://github.com/jbr/cargo-mcp"
+documentation = "https://docs.rs/cargo-mcp"
+license = "MIT OR Apache-2.0"
+keywords = ["mcp"]
+categories = []
 
 [dependencies]
 clap = { version = "4.0", features = ["derive"] }
