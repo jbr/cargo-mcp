@@ -3,8 +3,8 @@ use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::path::PathBuf;
-use tokio::io::BufReader;
 use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt};
+use tokio::io::BufReader;
 use tokio::process::Command;
 
 #[derive(Parser)]
@@ -14,7 +14,7 @@ struct Cli {
     /// Optional "mcp" argument when invoked as `cargo mcp`
     #[arg(value_name = "SUBCOMMAND")]
     cargo_subcommand: Option<String>,
-
+    
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -98,7 +98,7 @@ impl CargoMcpServer {
                             "description": "Path to the Rust project directory"
                         },
                         "package": {
-                            "type": "string",
+                            "type": "string", 
                             "description": "Optional package name to check (for workspaces)"
                         }
                     },
@@ -152,8 +152,7 @@ impl CargoMcpServer {
             },
             Tool {
                 name: "cargo_fmt_check".to_string(),
-                description: "Check if code is properly formatted without modifying files"
-                    .to_string(),
+                description: "Check if code is properly formatted without modifying files".to_string(),
                 input_schema: json!({
                     "type": "object",
                     "properties": {
@@ -188,6 +187,32 @@ impl CargoMcpServer {
                     "required": ["path"]
                 }),
             },
+            Tool {
+                name: "cargo_bench".to_string(),
+                description: "Run cargo bench to execute benchmarks".to_string(),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "description": "Path to the Rust project directory"
+                        },
+                        "package": {
+                            "type": "string",
+                            "description": "Optional package name to benchmark (for workspaces)"
+                        },
+                        "bench_name": {
+                            "type": "string",
+                            "description": "Optional specific benchmark name to run"
+                        },
+                        "baseline": {
+                            "type": "string",
+                            "description": "Optional baseline name for comparison"
+                        }
+                    },
+                    "required": ["path"]
+                }),
+            },
         ];
 
         Self { tools }
@@ -195,7 +220,9 @@ impl CargoMcpServer {
 
     async fn handle_message(&self, message: McpMessage) -> Option<McpResponse> {
         match message {
-            McpMessage::Request(request) => Some(self.handle_request(request).await),
+            McpMessage::Request(request) => {
+                Some(self.handle_request(request).await)
+            }
             McpMessage::Notification(notification) => {
                 self.handle_notification(notification).await;
                 None // Notifications don't get responses
@@ -332,10 +359,7 @@ impl CargoMcpServer {
 
         // Verify it's a Rust project
         if !project_path.join("Cargo.toml").exists() {
-            return Err(anyhow!(
-                "Not a Rust project: Cargo.toml not found in {}",
-                path
-            ));
+            return Err(anyhow!("Not a Rust project: Cargo.toml not found in {}", path));
         }
 
         match tool_call.name.as_str() {
@@ -344,6 +368,7 @@ impl CargoMcpServer {
             "cargo_test" => self.run_cargo_test(project_path, args).await,
             "cargo_fmt_check" => self.run_cargo_fmt_check(project_path).await,
             "cargo_build" => self.run_cargo_build(project_path, args).await,
+            "cargo_bench" => self.run_cargo_bench(project_path, args).await,
             _ => Err(anyhow!("Unknown tool: {}", tool_call.name)),
         }
     }
@@ -408,15 +433,30 @@ impl CargoMcpServer {
             cmd.args(["--package", package]);
         }
 
-        if args
-            .get("release")
-            .and_then(|r| r.as_bool())
-            .unwrap_or(false)
-        {
+        if args.get("release").and_then(|r| r.as_bool()).unwrap_or(false) {
             cmd.arg("--release");
         }
 
         self.execute_command(cmd, "cargo build").await
+    }
+
+    async fn run_cargo_bench(&self, project_path: PathBuf, args: &Value) -> Result<String> {
+        let mut cmd = Command::new("cargo");
+        cmd.arg("bench").current_dir(&project_path);
+
+        if let Some(package) = args.get("package").and_then(|p| p.as_str()) {
+            cmd.args(["--package", package]);
+        }
+
+        if let Some(bench_name) = args.get("bench_name").and_then(|b| b.as_str()) {
+            cmd.arg(bench_name);
+        }
+
+        if let Some(baseline) = args.get("baseline").and_then(|b| b.as_str()) {
+            cmd.args(["--", "--save-baseline", baseline]);
+        }
+
+        self.execute_command(cmd, "cargo bench").await
     }
 
     async fn execute_command(&self, mut cmd: Command, command_name: &str) -> Result<String> {
@@ -425,14 +465,12 @@ impl CargoMcpServer {
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         let mut result = format!("=== {command_name} ===\n");
-
+        
         if output.status.success() {
             result.push_str("✅ Command completed successfully\n\n");
         } else {
-            result.push_str(&format!(
-                "❌ Command failed with exit code: {}\n\n",
-                output.status.code().unwrap_or(-1)
-            ));
+            result.push_str(&format!("❌ Command failed with exit code: {}\n\n", 
+                output.status.code().unwrap_or(-1)));
         }
 
         if !stdout.is_empty() {
@@ -502,7 +540,7 @@ async fn run_server(server: CargoMcpServer) -> Result<()> {
 
                 if let Some(response) = server.handle_message(message).await {
                     let response_json = serde_json::to_string(&response)?;
-
+                    
                     stdout.write_all(response_json.as_bytes()).await?;
                     stdout.write_all(b"\n").await?;
                     stdout.flush().await?;
