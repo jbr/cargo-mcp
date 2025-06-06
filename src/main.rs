@@ -213,6 +213,108 @@ impl CargoMcpServer {
                     "required": ["path"]
                 }),
             },
+            Tool {
+                name: "cargo_add".to_string(),
+                description: "Add dependencies to Cargo.toml using cargo add".to_string(),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "description": "Path to the Rust project directory"
+                        },
+                        "package": {
+                            "type": "string",
+                            "description": "Optional package name (for workspaces)"
+                        },
+                        "dependencies": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "description": "List of dependencies to add (e.g., ['serde', 'tokio@1.0'])"
+                        },
+                        "dev": {
+                            "type": "boolean",
+                            "description": "Add as development dependencies",
+                            "default": false
+                        },
+                        "optional": {
+                            "type": "boolean",
+                            "description": "Add as optional dependencies",
+                            "default": false
+                        },
+                        "features": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "description": "Optional features to enable"
+                        }
+                    },
+                    "required": ["path", "dependencies"]
+                }),
+            },
+            Tool {
+                name: "cargo_remove".to_string(),
+                description: "Remove dependencies from Cargo.toml using cargo remove".to_string(),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "description": "Path to the Rust project directory"
+                        },
+                        "package": {
+                            "type": "string",
+                            "description": "Optional package name (for workspaces)"
+                        },
+                        "dependencies": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "description": "List of dependencies to remove"
+                        },
+                        "dev": {
+                            "type": "boolean",
+                            "description": "Remove from development dependencies",
+                            "default": false
+                        }
+                    },
+                    "required": ["path", "dependencies"]
+                }),
+            },
+            Tool {
+                name: "cargo_update".to_string(),
+                description: "Update dependencies using cargo update".to_string(),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "description": "Path to the Rust project directory"
+                        },
+                        "package": {
+                            "type": "string",
+                            "description": "Optional package name (for workspaces)"
+                        },
+                        "dependencies": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "description": "Optional specific dependencies to update"
+                        },
+                        "dry_run": {
+                            "type": "boolean",
+                            "description": "Perform a dry run to see what would be updated",
+                            "default": false
+                        }
+                    },
+                    "required": ["path"]
+                }),
+            },
         ];
 
         Self { tools }
@@ -369,6 +471,9 @@ impl CargoMcpServer {
             "cargo_fmt_check" => self.run_cargo_fmt_check(project_path).await,
             "cargo_build" => self.run_cargo_build(project_path, args).await,
             "cargo_bench" => self.run_cargo_bench(project_path, args).await,
+            "cargo_add" => self.run_cargo_add(project_path, args).await,
+            "cargo_remove" => self.run_cargo_remove(project_path, args).await,
+            "cargo_update" => self.run_cargo_update(project_path, args).await,
             _ => Err(anyhow!("Unknown tool: {}", tool_call.name)),
         }
     }
@@ -457,6 +562,97 @@ impl CargoMcpServer {
         }
 
         self.execute_command(cmd, "cargo bench").await
+    }
+
+    async fn run_cargo_add(&self, project_path: PathBuf, args: &Value) -> Result<String> {
+        let mut cmd = Command::new("cargo");
+        cmd.arg("add").current_dir(&project_path);
+
+        if let Some(package) = args.get("package").and_then(|p| p.as_str()) {
+            cmd.args(["--package", package]);
+        }
+
+        if args.get("dev").and_then(|d| d.as_bool()).unwrap_or(false) {
+            cmd.arg("--dev");
+        }
+
+        if args.get("optional").and_then(|o| o.as_bool()).unwrap_or(false) {
+            cmd.arg("--optional");
+        }
+
+        if let Some(features) = args.get("features").and_then(|f| f.as_array()) {
+            if !features.is_empty() {
+                let features_str = features
+                    .iter()
+                    .filter_map(|f| f.as_str())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                cmd.args(["--features", &features_str]);
+            }
+        }
+
+        // Add the dependencies
+        if let Some(deps) = args.get("dependencies").and_then(|d| d.as_array()) {
+            for dep in deps {
+                if let Some(dep_str) = dep.as_str() {
+                    cmd.arg(dep_str);
+                }
+            }
+        } else {
+            return Err(anyhow!("No dependencies specified"));
+        }
+
+        self.execute_command(cmd, "cargo add").await
+    }
+
+    async fn run_cargo_remove(&self, project_path: PathBuf, args: &Value) -> Result<String> {
+        let mut cmd = Command::new("cargo");
+        cmd.arg("remove").current_dir(&project_path);
+
+        if let Some(package) = args.get("package").and_then(|p| p.as_str()) {
+            cmd.args(["--package", package]);
+        }
+
+        if args.get("dev").and_then(|d| d.as_bool()).unwrap_or(false) {
+            cmd.arg("--dev");
+        }
+
+        // Add the dependencies to remove
+        if let Some(deps) = args.get("dependencies").and_then(|d| d.as_array()) {
+            for dep in deps {
+                if let Some(dep_str) = dep.as_str() {
+                    cmd.arg(dep_str);
+                }
+            }
+        } else {
+            return Err(anyhow!("No dependencies specified"));
+        }
+
+        self.execute_command(cmd, "cargo remove").await
+    }
+
+    async fn run_cargo_update(&self, project_path: PathBuf, args: &Value) -> Result<String> {
+        let mut cmd = Command::new("cargo");
+        cmd.arg("update").current_dir(&project_path);
+
+        if let Some(package) = args.get("package").and_then(|p| p.as_str()) {
+            cmd.args(["--package", package]);
+        }
+
+        if args.get("dry_run").and_then(|d| d.as_bool()).unwrap_or(false) {
+            cmd.arg("--dry-run");
+        }
+
+        // Add specific dependencies to update if provided
+        if let Some(deps) = args.get("dependencies").and_then(|d| d.as_array()) {
+            for dep in deps {
+                if let Some(dep_str) = dep.as_str() {
+                    cmd.args(["--package", dep_str]);
+                }
+            }
+        }
+
+        self.execute_command(cmd, "cargo update").await
     }
 
     async fn execute_command(&self, mut cmd: Command, command_name: &str) -> Result<String> {
