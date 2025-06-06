@@ -1,6 +1,7 @@
 # Cargo MCP Server
 
-> [!CAUTION] This repository is written by AI as an experiment. Although I
+> [!CAUTION]
+> This repository is written by AI as an experiment. Although I
 > ([jbr](https://github.com/jbr)) review every line, the code quality is not necessarily identical
 > to what I would have written. Caveat usor.
 
