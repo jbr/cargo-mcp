@@ -11,6 +11,10 @@ use tokio::process::Command;
 #[command(name = "cargo-mcp")]
 #[command(about = "A Model Context Protocol server for Cargo operations")]
 struct Cli {
+    /// Optional "mcp" argument when invoked as `cargo mcp`
+    #[arg(value_name = "SUBCOMMAND")]
+    cargo_subcommand: Option<String>,
+    
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -443,10 +447,21 @@ impl CargoMcpServer {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    match cli.command {
-        Some(Commands::Serve) | None => {
-            let server = CargoMcpServer::new();
-            run_server(server).await?;
+    // Skip the "mcp" argument if present (when invoked as `cargo mcp`)
+    match cli.cargo_subcommand.as_deref() {
+        Some("mcp") | None => {
+            // Continue with normal processing
+            match cli.command {
+                Some(Commands::Serve) | None => {
+                    let server = CargoMcpServer::new();
+                    run_server(server).await?;
+                }
+            }
+        }
+        Some(other) => {
+            eprintln!("Unknown subcommand: {}", other);
+            eprintln!("This tool is designed to be used as 'cargo-mcp' or 'cargo mcp serve'");
+            std::process::exit(1);
         }
     }
 
