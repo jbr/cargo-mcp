@@ -2,10 +2,10 @@ use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashMap;
 use std::path::PathBuf;
-use std::process::Command;
-use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt};
+use tokio::io::BufReader;
+use tokio::process::Command;
 
 #[derive(Parser)]
 #[command(name = "cargo-mcp")]
@@ -283,7 +283,8 @@ impl CargoMcpServer {
     }
 
     async fn execute_tool(&self, tool_call: &ToolCallParams) -> Result<String> {
-        let args = tool_call.arguments.as_ref().unwrap_or(&json!({}));
+        let empty_args = json!({});
+        let args = tool_call.arguments.as_ref().unwrap_or(&empty_args);
         let path = args
             .get("path")
             .and_then(|p| p.as_str())
@@ -377,7 +378,7 @@ impl CargoMcpServer {
     }
 
     async fn execute_command(&self, mut cmd: Command, command_name: &str) -> Result<String> {
-        let output = cmd.output()?;
+        let output = cmd.output().await?;
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
