@@ -659,8 +659,8 @@ impl CargoMcpServer {
             cmd.arg("--optional");
         }
 
-        if let Some(features) = args.get("features").and_then(|f| f.as_array())
-            && !features.is_empty() {
+        if let Some(features) = args.get("features").and_then(|f| f.as_array()) {
+            if !features.is_empty() {
                 let features_str = features
                     .iter()
                     .filter_map(|f| f.as_str())
@@ -668,6 +668,7 @@ impl CargoMcpServer {
                     .join(",");
                 cmd.args(["--features", &features_str]);
             }
+        }
 
         // Add the dependencies
         if let Some(deps) = args.get("dependencies").and_then(|d| d.as_array()) {
