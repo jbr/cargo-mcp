@@ -20,13 +20,15 @@ This MCP server exposes the following Cargo tools:
 - **cargo_add** - Add dependencies to Cargo.toml
 - **cargo_remove** - Remove dependencies from Cargo.toml
 - **cargo_update** - Update dependencies
+- **cargo_clean** - Remove artifacts that cargo has generated in the past
 
-All tools support setting custom environment variables via the `env` parameter.
+All tools support setting custom environment variables via the `cargo_env` parameter and rust
+toolchain with the `toolchain` parameter.
 
 ## Installation
 
 ```bash
-cargo build --release
+cargo install cargo-mcp
 ```
 
 ## Usage with Claude Desktop
@@ -37,20 +39,23 @@ Add this to your Claude Desktop MCP configuration:
 {
   "mcpServers": {
     "cargo-mcp": {
-      "command": "/path/to/cargo-mcp/target/release/cargo-mcp",
+      "command": "/path/to/cargo-mcp/cargo-mcp",
       "args": ["serve"]
     }
   }
 }
 ```
 
+Optionally, include `--default-toolchain TOOLCHAIN` in the arguments, where TOOLCHAIN is something
+like "stable" or "nightly".
+
 ## Tool Usage
 
-All tools accept an optional `env` parameter to set environment variables for the cargo command:
+All tools accept an optional `cargo_env` parameter to set environment variables for the cargo command:
 
 ```json
 {
-  "env": {
+  "cargo_env": {
     "CARGO_LOG": "debug",
     "RUSTFLAGS": "-C target-cpu=native",
     "CARGO_TARGET_DIR": "/tmp/my-target"
@@ -66,7 +71,7 @@ Verify that your Rust code compiles:
   "arguments": {
     "path": "/path/to/rust/project",
     "package": "optional-package-name",
-    "env": {
+    "cargo_env": {
       "CARGO_LOG": "debug"
     }
   }
@@ -82,7 +87,7 @@ Get linting suggestions:
     "path": "/path/to/rust/project",
     "package": "optional-package-name",
     "fix": false,
-    "env": {
+    "cargo_env": {
       "RUSTFLAGS": "-D warnings"
     }
   }
@@ -98,7 +103,7 @@ Run tests:
     "path": "/path/to/rust/project", 
     "package": "optional-package-name",
     "test_name": "optional-specific-test",
-    "env": {
+    "cargo_env": {
       "RUST_TEST_THREADS": "1"
     }
   }
@@ -112,7 +117,7 @@ Check formatting:
   "name": "cargo_fmt_check",
   "arguments": {
     "path": "/path/to/rust/project",
-    "env": {
+    "cargo_env": {
       "CARGO_LOG": "info"
     }
   }
@@ -128,7 +133,7 @@ Build the project:
     "path": "/path/to/rust/project",
     "package": "optional-package-name", 
     "release": false,
-    "env": {
+    "cargo_env": {
       "RUSTFLAGS": "-C target-cpu=native"
     }
   }
@@ -145,7 +150,7 @@ Run benchmarks:
     "package": "optional-package-name",
     "bench_name": "optional-specific-benchmark",
     "baseline": "optional-baseline-name",
-    "env": {
+    "cargo_env": {
       "CARGO_LOG": "debug"
     }
   }
@@ -163,7 +168,7 @@ Add dependencies:
     "dev": false,
     "optional": false,
     "features": ["derive"],
-    "env": {
+    "cargo_env": {
       "CARGO_LOG": "info"
     }
   }
@@ -179,7 +184,7 @@ Remove dependencies:
     "path": "/path/to/rust/project",
     "dependencies": ["unused-dep"],
     "dev": false,
-    "env": {
+    "cargo_env": {
       "CARGO_LOG": "info"
     }
   }
@@ -196,7 +201,23 @@ Update dependencies:
     "package": "optional-package-name",
     "dependencies": ["specific-dep-to-update"],
     "dry_run": false,
-    "env": {
+    "cargo_env": {
+      "CARGO_LOG": "debug"
+    }
+  }
+}
+```
+
+
+### cargo_clean
+Update dependencies:
+```json
+{
+  "name": "cargo_clean",
+  "arguments": {
+    "path": "/path/to/rust/project",
+    "package": "optional-package-name",
+    "cargo_env": {
       "CARGO_LOG": "debug"
     }
   }
@@ -205,7 +226,8 @@ Update dependencies:
 
 ## Environment Variables
 
-The `env` parameter allows you to set environment variables that will be passed to the cargo command. Common useful environment variables include:
+The `cargo_env` parameter allows you to set environment variables that will be passed to the cargo
+command. Common useful environment variables include:
 
 - **CARGO_LOG** - Set logging level (`trace`, `debug`, `info`, `warn`, `error`)
 - **RUSTFLAGS** - Pass flags to the Rust compiler (e.g., `-C target-cpu=native`)
@@ -219,22 +241,7 @@ The `env` parameter allows you to set environment variables that will be passed 
 - Path validation ensures the target is a valid Rust project (has Cargo.toml)
 - No arbitrary command execution
 - All commands run in the specified project directory
-- Environment variables are safely passed through to cargo processes
-
-## Development
-
-To test the server manually:
-
-```bash
-cargo run -- serve
-```
-
-Then send MCP requests via stdin. Example initialization:
-
-```json
-{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}
-```
 
 ## License
 
-MIT
+MIT or APACHE-2.0
