@@ -396,15 +396,16 @@ impl CargoMcpServer {
             cmd.arg("--optional");
         }
 
-        if let Some(features) = args.get("features").and_then(|f| f.as_array())
-            && !features.is_empty()
-        {
-            let features_str = features
-                .iter()
-                .filter_map(|f| f.as_str())
-                .collect::<Vec<_>>()
-                .join(",");
-            cmd.args(["--features", &features_str]);
+        #[allow(clippy::collapsible_if)]
+        if let Some(features) = args.get("features").and_then(|f| f.as_array()) {
+            if !features.is_empty() {
+                let features_str = features
+                    .iter()
+                    .filter_map(|f| f.as_str())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                cmd.args(["--features", &features_str]);
+            }
         }
 
         // Add the dependencies
