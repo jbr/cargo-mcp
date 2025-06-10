@@ -101,6 +101,10 @@ impl CargoMcpServer {
                             "type": "string",
                             "description": "Optional package name to check (for workspaces)"
                         },
+                        "toolchain": {
+                            "type": "string",
+                            "description": "Optional Rust toolchain to use (e.g., 'stable', 'nightly', '1.70.0')"
+                        },
                         "cargo_env": {
                             "type": "object",
                             "description": "Optional environment variables to set for the cargo command",
@@ -125,6 +129,10 @@ impl CargoMcpServer {
                         "package": {
                             "type": "string",
                             "description": "Optional package name to lint (for workspaces)"
+                        },
+                        "toolchain": {
+                            "type": "string",
+                            "description": "Optional Rust toolchain to use (e.g., 'stable', 'nightly', '1.70.0')"
                         },
                         "fix": {
                             "type": "boolean",
@@ -156,6 +164,10 @@ impl CargoMcpServer {
                             "type": "string",
                             "description": "Optional package name to test (for workspaces)"
                         },
+                        "toolchain": {
+                            "type": "string",
+                            "description": "Optional Rust toolchain to use (e.g., 'stable', 'nightly', '1.70.0')"
+                        },
                         "test_name": {
                             "type": "string",
                             "description": "Optional specific test name to run"
@@ -182,6 +194,10 @@ impl CargoMcpServer {
                             "type": "string",
                             "description": "Path to the Rust project directory"
                         },
+                        "toolchain": {
+                            "type": "string",
+                            "description": "Optional Rust toolchain to use (e.g., 'stable', 'nightly', '1.70.0')"
+                        },
                         "cargo_env": {
                             "type": "object",
                             "description": "Optional environment variables to set for the cargo command",
@@ -206,6 +222,10 @@ impl CargoMcpServer {
                         "package": {
                             "type": "string",
                             "description": "Optional package name to build (for workspaces)"
+                        },
+                        "toolchain": {
+                            "type": "string",
+                            "description": "Optional Rust toolchain to use (e.g., 'stable', 'nightly', '1.70.0')"
                         },
                         "release": {
                             "type": "boolean",
@@ -236,6 +256,10 @@ impl CargoMcpServer {
                         "package": {
                             "type": "string",
                             "description": "Optional package name to benchmark (for workspaces)"
+                        },
+                        "toolchain": {
+                            "type": "string",
+                            "description": "Optional Rust toolchain to use (e.g., 'stable', 'nightly', '1.70.0')"
                         },
                         "bench_name": {
                             "type": "string",
@@ -269,6 +293,10 @@ impl CargoMcpServer {
                         "package": {
                             "type": "string",
                             "description": "Optional package name (for workspaces)"
+                        },
+                        "toolchain": {
+                            "type": "string",
+                            "description": "Optional Rust toolchain to use (e.g., 'stable', 'nightly', '1.70.0')"
                         },
                         "dependencies": {
                             "type": "array",
@@ -319,6 +347,10 @@ impl CargoMcpServer {
                             "type": "string",
                             "description": "Optional package name (for workspaces)"
                         },
+                        "toolchain": {
+                            "type": "string",
+                            "description": "Optional Rust toolchain to use (e.g., 'stable', 'nightly', '1.70.0')"
+                        },
                         "dependencies": {
                             "type": "array",
                             "items": {
@@ -355,6 +387,10 @@ impl CargoMcpServer {
                         "package": {
                             "type": "string",
                             "description": "Optional package name (for workspaces)"
+                        },
+                        "toolchain": {
+                            "type": "string",
+                            "description": "Optional Rust toolchain to use (e.g., 'stable', 'nightly', '1.70.0')"
                         },
                         "dependencies": {
                             "type": "array",
@@ -543,9 +579,25 @@ impl CargoMcpServer {
         }
     }
 
+        /// Create a Command for cargo operations, optionally using rustup with a specified toolchain
+    fn create_cargo_command(&self, cargo_args: &[&str], toolchain: Option<&str>) -> Command {
+        if let Some(toolchain) = toolchain {
+            let mut cmd = Command::new("rustup");
+            cmd.args(["run", toolchain, "cargo"]);
+            cmd.args(cargo_args);
+            cmd
+        } else {
+            let mut cmd = Command::new("cargo");
+            cmd.args(cargo_args);
+            cmd
+        }
+    }
+
+
     async fn run_cargo_check(&self, project_path: PathBuf, args: &Value) -> Result<String> {
-        let mut cmd = Command::new("cargo");
-        cmd.arg("check").current_dir(&project_path);
+        let toolchain = args.get("toolchain").and_then(|t| t.as_str());
+        let mut cmd = self.create_cargo_command(&["check"], toolchain);
+        cmd.current_dir(&project_path);
 
         if let Some(package) = args.get("package").and_then(|p| p.as_str()) {
             cmd.args(["--package", package]);
@@ -556,8 +608,9 @@ impl CargoMcpServer {
     }
 
     async fn run_cargo_clippy(&self, project_path: PathBuf, args: &Value) -> Result<String> {
-        let mut cmd = Command::new("cargo");
-        cmd.arg("clippy").current_dir(&project_path);
+        let toolchain = args.get("toolchain").and_then(|t| t.as_str());
+        let mut cmd = self.create_cargo_command(&["clippy"], toolchain);
+        cmd.current_dir(&project_path);
 
         if let Some(package) = args.get("package").and_then(|p| p.as_str()) {
             cmd.args(["--package", package]);
@@ -576,8 +629,9 @@ impl CargoMcpServer {
     }
 
     async fn run_cargo_test(&self, project_path: PathBuf, args: &Value) -> Result<String> {
-        let mut cmd = Command::new("cargo");
-        cmd.arg("test").current_dir(&project_path);
+        let toolchain = args.get("toolchain").and_then(|t| t.as_str());
+        let mut cmd = self.create_cargo_command(&["test"], toolchain);
+        cmd.current_dir(&project_path);
 
         if let Some(package) = args.get("package").and_then(|p| p.as_str()) {
             cmd.args(["--package", package]);
@@ -587,21 +641,23 @@ impl CargoMcpServer {
             cmd.arg(test_name);
         }
 
-        let env_vars = args.get("env").and_then(|e| e.as_object());
+        let env_vars = args.get("cargo_env").and_then(|e| e.as_object());
         self.execute_command(cmd, "cargo test", env_vars).await
     }
 
     async fn run_cargo_fmt_check(&self, project_path: PathBuf, args: &Value) -> Result<String> {
-        let mut cmd = Command::new("cargo");
-        cmd.args(["fmt", "--check"]).current_dir(&project_path);
+        let toolchain = args.get("toolchain").and_then(|t| t.as_str());
+        let mut cmd = self.create_cargo_command(&["fmt", "--check"], toolchain);
+        cmd.current_dir(&project_path);
 
         let env_vars = args.get("cargo_env").and_then(|e| e.as_object());
         self.execute_command(cmd, "cargo fmt --check", env_vars).await
     }
 
     async fn run_cargo_build(&self, project_path: PathBuf, args: &Value) -> Result<String> {
-        let mut cmd = Command::new("cargo");
-        cmd.arg("build").current_dir(&project_path);
+        let toolchain = args.get("toolchain").and_then(|t| t.as_str());
+        let mut cmd = self.create_cargo_command(&["build"], toolchain);
+        cmd.current_dir(&project_path);
 
         if let Some(package) = args.get("package").and_then(|p| p.as_str()) {
             cmd.args(["--package", package]);
@@ -620,8 +676,9 @@ impl CargoMcpServer {
     }
 
     async fn run_cargo_bench(&self, project_path: PathBuf, args: &Value) -> Result<String> {
-        let mut cmd = Command::new("cargo");
-        cmd.arg("bench").current_dir(&project_path);
+        let toolchain = args.get("toolchain").and_then(|t| t.as_str());
+        let mut cmd = self.create_cargo_command(&["bench"], toolchain);
+        cmd.current_dir(&project_path);
 
         if let Some(package) = args.get("package").and_then(|p| p.as_str()) {
             cmd.args(["--package", package]);
@@ -640,8 +697,9 @@ impl CargoMcpServer {
     }
 
     async fn run_cargo_add(&self, project_path: PathBuf, args: &Value) -> Result<String> {
-        let mut cmd = Command::new("cargo");
-        cmd.arg("add").current_dir(&project_path);
+        let toolchain = args.get("toolchain").and_then(|t| t.as_str());
+        let mut cmd = self.create_cargo_command(&["add"], toolchain);
+        cmd.current_dir(&project_path);
 
         if let Some(package) = args.get("package").and_then(|p| p.as_str()) {
             cmd.args(["--package", package]);
@@ -686,8 +744,9 @@ impl CargoMcpServer {
     }
 
     async fn run_cargo_remove(&self, project_path: PathBuf, args: &Value) -> Result<String> {
-        let mut cmd = Command::new("cargo");
-        cmd.arg("remove").current_dir(&project_path);
+        let toolchain = args.get("toolchain").and_then(|t| t.as_str());
+        let mut cmd = self.create_cargo_command(&["remove"], toolchain);
+        cmd.current_dir(&project_path);
 
         if let Some(package) = args.get("package").and_then(|p| p.as_str()) {
             cmd.args(["--package", package]);
@@ -713,8 +772,9 @@ impl CargoMcpServer {
     }
 
     async fn run_cargo_update(&self, project_path: PathBuf, args: &Value) -> Result<String> {
-        let mut cmd = Command::new("cargo");
-        cmd.arg("update").current_dir(&project_path);
+        let toolchain = args.get("toolchain").and_then(|t| t.as_str());
+        let mut cmd = self.create_cargo_command(&["update"], toolchain);
+        cmd.current_dir(&project_path);
 
         if let Some(package) = args.get("package").and_then(|p| p.as_str()) {
             cmd.args(["--package", package]);
