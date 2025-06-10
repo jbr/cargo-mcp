@@ -253,6 +253,7 @@ impl CargoMcpServer {
             "cargo_add" => self.run_cargo_add(project_path, args).await,
             "cargo_remove" => self.run_cargo_remove(project_path, args).await,
             "cargo_update" => self.run_cargo_update(project_path, args).await,
+            "cargo_clean" => self.run_cargo_clean(project_path, args).await,
             _ => Err(anyhow!("Unknown tool: {}", tool_call.name)),
         }
     }
@@ -304,6 +305,19 @@ impl CargoMcpServer {
 
         let env_vars = args.get("cargo_env").and_then(|e| e.as_object());
         self.execute_command(cmd, "cargo clippy", env_vars).await
+    }
+
+    async fn run_cargo_clean(&self, project_path: PathBuf, args: &Value) -> Result<String> {
+        let toolchain = args.get("toolchain").and_then(|t| t.as_str());
+        let mut cmd = self.create_cargo_command(&["clean"], toolchain);
+        cmd.current_dir(&project_path);
+
+        if let Some(package) = args.get("package").and_then(|p| p.as_str()) {
+            cmd.args(["--package", package]);
+        }
+
+        let env_vars = args.get("cargo_env").and_then(|e| e.as_object());
+        self.execute_command(cmd, "cargo clean", env_vars).await
     }
 
     async fn run_cargo_test(&self, project_path: PathBuf, args: &Value) -> Result<String> {

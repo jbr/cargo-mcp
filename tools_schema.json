@@ -326,5 +326,34 @@
       },
       "required": ["path"]
     }
+  },
+  {
+    "name": "cargo_clean",
+    "description": "Remove artifacts that cargo has generated in the past",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path to the Rust project directory"
+        },
+        "package": {
+          "type": "string",
+          "description": "Optional package to clean artifacts for"
+        },
+        "toolchain": {
+          "type": "string",
+          "description": "Optional Rust toolchain to use (e.g., 'stable', 'nightly', '1.70.0')"
+        },
+        "cargo_env": {
+          "type": "object",
+          "description": "Optional environment variables to set for the cargo command",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "required": ["path"]
+    }
   }
 ]
