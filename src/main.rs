@@ -7,7 +7,7 @@ use tokio::io::BufReader;
 use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt};
 use tokio::process::Command;
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[command(name = "cargo-mcp")]
 #[command(about = "A Model Context Protocol server for Cargo operations")]
 struct Cli {
@@ -17,9 +17,12 @@ struct Cli {
 
     #[command(subcommand)]
     command: Option<Commands>,
+
+    #[arg(long)]
+    default_toolchain: Option<String>,
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 enum Commands {
     /// Start the MCP server
     Serve,
@@ -82,306 +85,17 @@ struct ToolCallParams {
 
 struct CargoMcpServer {
     tools: Vec<Tool>,
+    default_toolchain: Option<String>,
 }
 
 impl CargoMcpServer {
-    fn new() -> Self {
-        let tools = vec![
-            Tool {
-                name: "cargo_check".to_string(),
-                description: "Run cargo check to verify the code compiles".to_string(),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Path to the Rust project directory"
-                        },
-                        "package": {
-                            "type": "string",
-                            "description": "Optional package name to check (for workspaces)"
-                        },
-                        "env": {
-                            "type": "object",
-                            "description": "Optional environment variables to set",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "required": ["path"]
-                }),
-            },
-            Tool {
-                name: "cargo_clippy".to_string(),
-                description: "Run cargo clippy for linting suggestions".to_string(),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Path to the Rust project directory"
-                        },
-                        "package": {
-                            "type": "string",
-                            "description": "Optional package name to lint (for workspaces)"
-                        },
-                        "fix": {
-                            "type": "boolean",
-                            "description": "Apply suggested fixes automatically",
-                            "default": false
-                        },
-                        "env": {
-                            "type": "object",
-                            "description": "Optional environment variables to set",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "required": ["path"]
-                }),
-            },
-            Tool {
-                name: "cargo_test".to_string(),
-                description: "Run cargo test to execute tests".to_string(),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Path to the Rust project directory"
-                        },
-                        "package": {
-                            "type": "string",
-                            "description": "Optional package name to test (for workspaces)"
-                        },
-                        "test_name": {
-                            "type": "string",
-                            "description": "Optional specific test name to run"
-                        },
-                        "env": {
-                            "type": "object",
-                            "description": "Optional environment variables to set",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "required": ["path"]
-                }),
-            },
-            Tool {
-                name: "cargo_fmt_check".to_string(),
-                description: "Check if code is properly formatted without modifying files"
-                    .to_string(),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Path to the Rust project directory"
-                        },
-                        "env": {
-                            "type": "object",
-                            "description": "Optional environment variables to set",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "required": ["path"]
-                }),
-            },
-            Tool {
-                name: "cargo_build".to_string(),
-                description: "Build the project with cargo build".to_string(),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Path to the Rust project directory"
-                        },
-                        "package": {
-                            "type": "string",
-                            "description": "Optional package name to build (for workspaces)"
-                        },
-                        "release": {
-                            "type": "boolean",
-                            "description": "Build in release mode",
-                            "default": false
-                        },
-                        "env": {
-                            "type": "object",
-                            "description": "Optional environment variables to set",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "required": ["path"]
-                }),
-            },
-            Tool {
-                name: "cargo_bench".to_string(),
-                description: "Run cargo bench to execute benchmarks".to_string(),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Path to the Rust project directory"
-                        },
-                        "package": {
-                            "type": "string",
-                            "description": "Optional package name to benchmark (for workspaces)"
-                        },
-                        "bench_name": {
-                            "type": "string",
-                            "description": "Optional specific benchmark name to run"
-                        },
-                        "baseline": {
-                            "type": "string",
-                            "description": "Optional baseline name for comparison"
-                        },
-                        "env": {
-                            "type": "object",
-                            "description": "Optional environment variables to set",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "required": ["path"]
-                }),
-            },
-            Tool {
-                name: "cargo_add".to_string(),
-                description: "Add dependencies to Cargo.toml using cargo add".to_string(),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Path to the Rust project directory"
-                        },
-                        "package": {
-                            "type": "string",
-                            "description": "Optional package name (for workspaces)"
-                        },
-                        "dependencies": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            },
-                            "description": "List of dependencies to add (e.g., ['serde', 'tokio@1.0'])"
-                        },
-                        "dev": {
-                            "type": "boolean",
-                            "description": "Add as development dependencies",
-                            "default": false
-                        },
-                        "optional": {
-                            "type": "boolean",
-                            "description": "Add as optional dependencies",
-                            "default": false
-                        },
-                        "features": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            },
-                            "description": "Optional features to enable"
-                        },
-                        "env": {
-                            "type": "object",
-                            "description": "Optional environment variables to set",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "required": ["path", "dependencies"]
-                }),
-            },
-            Tool {
-                name: "cargo_remove".to_string(),
-                description: "Remove dependencies from Cargo.toml using cargo remove".to_string(),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Path to the Rust project directory"
-                        },
-                        "package": {
-                            "type": "string",
-                            "description": "Optional package name (for workspaces)"
-                        },
-                        "dependencies": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            },
-                            "description": "List of dependencies to remove"
-                        },
-                        "dev": {
-                            "type": "boolean",
-                            "description": "Remove from development dependencies",
-                            "default": false
-                        },
-                        "env": {
-                            "type": "object",
-                            "description": "Optional environment variables to set",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "required": ["path", "dependencies"]
-                }),
-            },
-            Tool {
-                name: "cargo_update".to_string(),
-                description: "Update dependencies using cargo update".to_string(),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Path to the Rust project directory"
-                        },
-                        "package": {
-                            "type": "string",
-                            "description": "Optional package name (for workspaces)"
-                        },
-                        "dependencies": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            },
-                            "description": "Optional specific dependencies to update"
-                        },
-                        "dry_run": {
-                            "type": "boolean",
-                            "description": "Perform a dry run to see what would be updated",
-                            "default": false
-                        },
-                        "env": {
-                            "type": "object",
-                            "description": "Optional environment variables to set",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "required": ["path"]
-                }),
-            },
-        ];
-
-        Self { tools }
+    fn new(default_toolchain: Option<String>) -> Self {
+        let tools = serde_json::from_str(include_str!("../tools_schema.json"))
+            .expect("tools_schema.json was not valid");
+        Self {
+            tools,
+            default_toolchain,
+        }
     }
 
     async fn handle_message(&self, message: McpMessage) -> Option<McpResponse> {
@@ -543,21 +257,38 @@ impl CargoMcpServer {
         }
     }
 
+    /// Create a Command for cargo operations, optionally using rustup with a specified toolchain
+    fn create_cargo_command(&self, cargo_args: &[&str], toolchain: Option<&str>) -> Command {
+        let toolchain = toolchain.or(self.default_toolchain.as_deref());
+        if let Some(toolchain) = toolchain {
+            let mut cmd = Command::new("rustup");
+            cmd.args(["run", toolchain, "cargo"]);
+            cmd.args(cargo_args);
+            cmd
+        } else {
+            let mut cmd = Command::new("cargo");
+            cmd.args(cargo_args);
+            cmd
+        }
+    }
+
     async fn run_cargo_check(&self, project_path: PathBuf, args: &Value) -> Result<String> {
-        let mut cmd = Command::new("cargo");
-        cmd.arg("check").current_dir(&project_path);
+        let toolchain = args.get("toolchain").and_then(|t| t.as_str());
+        let mut cmd = self.create_cargo_command(&["check"], toolchain);
+        cmd.current_dir(&project_path);
 
         if let Some(package) = args.get("package").and_then(|p| p.as_str()) {
             cmd.args(["--package", package]);
         }
 
-        let env_vars = args.get("env").and_then(|e| e.as_object());
+        let env_vars = args.get("cargo_env").and_then(|e| e.as_object());
         self.execute_command(cmd, "cargo check", env_vars).await
     }
 
     async fn run_cargo_clippy(&self, project_path: PathBuf, args: &Value) -> Result<String> {
-        let mut cmd = Command::new("cargo");
-        cmd.arg("clippy").current_dir(&project_path);
+        let toolchain = args.get("toolchain").and_then(|t| t.as_str());
+        let mut cmd = self.create_cargo_command(&["clippy"], toolchain);
+        cmd.current_dir(&project_path);
 
         if let Some(package) = args.get("package").and_then(|p| p.as_str()) {
             cmd.args(["--package", package]);
@@ -571,13 +302,14 @@ impl CargoMcpServer {
         cmd.arg("-D");
         cmd.arg("warnings");
 
-        let env_vars = args.get("env").and_then(|e| e.as_object());
+        let env_vars = args.get("cargo_env").and_then(|e| e.as_object());
         self.execute_command(cmd, "cargo clippy", env_vars).await
     }
 
     async fn run_cargo_test(&self, project_path: PathBuf, args: &Value) -> Result<String> {
-        let mut cmd = Command::new("cargo");
-        cmd.arg("test").current_dir(&project_path);
+        let toolchain = args.get("toolchain").and_then(|t| t.as_str());
+        let mut cmd = self.create_cargo_command(&["test"], toolchain);
+        cmd.current_dir(&project_path);
 
         if let Some(package) = args.get("package").and_then(|p| p.as_str()) {
             cmd.args(["--package", package]);
@@ -587,21 +319,24 @@ impl CargoMcpServer {
             cmd.arg(test_name);
         }
 
-        let env_vars = args.get("env").and_then(|e| e.as_object());
+        let env_vars = args.get("cargo_env").and_then(|e| e.as_object());
         self.execute_command(cmd, "cargo test", env_vars).await
     }
 
     async fn run_cargo_fmt_check(&self, project_path: PathBuf, args: &Value) -> Result<String> {
-        let mut cmd = Command::new("cargo");
-        cmd.args(["fmt", "--check"]).current_dir(&project_path);
+        let toolchain = args.get("toolchain").and_then(|t| t.as_str());
+        let mut cmd = self.create_cargo_command(&["fmt", "--check"], toolchain);
+        cmd.current_dir(&project_path);
 
-        let env_vars = args.get("env").and_then(|e| e.as_object());
-        self.execute_command(cmd, "cargo fmt --check", env_vars).await
+        let env_vars = args.get("cargo_env").and_then(|e| e.as_object());
+        self.execute_command(cmd, "cargo fmt --check", env_vars)
+            .await
     }
 
     async fn run_cargo_build(&self, project_path: PathBuf, args: &Value) -> Result<String> {
-        let mut cmd = Command::new("cargo");
-        cmd.arg("build").current_dir(&project_path);
+        let toolchain = args.get("toolchain").and_then(|t| t.as_str());
+        let mut cmd = self.create_cargo_command(&["build"], toolchain);
+        cmd.current_dir(&project_path);
 
         if let Some(package) = args.get("package").and_then(|p| p.as_str()) {
             cmd.args(["--package", package]);
@@ -615,13 +350,14 @@ impl CargoMcpServer {
             cmd.arg("--release");
         }
 
-        let env_vars = args.get("env").and_then(|e| e.as_object());
+        let env_vars = args.get("cargo_env").and_then(|e| e.as_object());
         self.execute_command(cmd, "cargo build", env_vars).await
     }
 
     async fn run_cargo_bench(&self, project_path: PathBuf, args: &Value) -> Result<String> {
-        let mut cmd = Command::new("cargo");
-        cmd.arg("bench").current_dir(&project_path);
+        let toolchain = args.get("toolchain").and_then(|t| t.as_str());
+        let mut cmd = self.create_cargo_command(&["bench"], toolchain);
+        cmd.current_dir(&project_path);
 
         if let Some(package) = args.get("package").and_then(|p| p.as_str()) {
             cmd.args(["--package", package]);
@@ -635,13 +371,14 @@ impl CargoMcpServer {
             cmd.args(["--", "--save-baseline", baseline]);
         }
 
-        let env_vars = args.get("env").and_then(|e| e.as_object());
+        let env_vars = args.get("cargo_env").and_then(|e| e.as_object());
         self.execute_command(cmd, "cargo bench", env_vars).await
     }
 
     async fn run_cargo_add(&self, project_path: PathBuf, args: &Value) -> Result<String> {
-        let mut cmd = Command::new("cargo");
-        cmd.arg("add").current_dir(&project_path);
+        let toolchain = args.get("toolchain").and_then(|t| t.as_str());
+        let mut cmd = self.create_cargo_command(&["add"], toolchain);
+        cmd.current_dir(&project_path);
 
         if let Some(package) = args.get("package").and_then(|p| p.as_str()) {
             cmd.args(["--package", package]);
@@ -659,6 +396,7 @@ impl CargoMcpServer {
             cmd.arg("--optional");
         }
 
+        #[allow(clippy::collapsible_if)]
         if let Some(features) = args.get("features").and_then(|f| f.as_array()) {
             if !features.is_empty() {
                 let features_str = features
@@ -681,13 +419,14 @@ impl CargoMcpServer {
             return Err(anyhow!("No dependencies specified"));
         }
 
-        let env_vars = args.get("env").and_then(|e| e.as_object());
+        let env_vars = args.get("cargo_env").and_then(|e| e.as_object());
         self.execute_command(cmd, "cargo add", env_vars).await
     }
 
     async fn run_cargo_remove(&self, project_path: PathBuf, args: &Value) -> Result<String> {
-        let mut cmd = Command::new("cargo");
-        cmd.arg("remove").current_dir(&project_path);
+        let toolchain = args.get("toolchain").and_then(|t| t.as_str());
+        let mut cmd = self.create_cargo_command(&["remove"], toolchain);
+        cmd.current_dir(&project_path);
 
         if let Some(package) = args.get("package").and_then(|p| p.as_str()) {
             cmd.args(["--package", package]);
@@ -708,13 +447,14 @@ impl CargoMcpServer {
             return Err(anyhow!("No dependencies specified"));
         }
 
-        let env_vars = args.get("env").and_then(|e| e.as_object());
+        let env_vars = args.get("cargo_env").and_then(|e| e.as_object());
         self.execute_command(cmd, "cargo remove", env_vars).await
     }
 
     async fn run_cargo_update(&self, project_path: PathBuf, args: &Value) -> Result<String> {
-        let mut cmd = Command::new("cargo");
-        cmd.arg("update").current_dir(&project_path);
+        let toolchain = args.get("toolchain").and_then(|t| t.as_str());
+        let mut cmd = self.create_cargo_command(&["update"], toolchain);
+        cmd.current_dir(&project_path);
 
         if let Some(package) = args.get("package").and_then(|p| p.as_str()) {
             cmd.args(["--package", package]);
@@ -737,25 +477,42 @@ impl CargoMcpServer {
             }
         }
 
-        let env_vars = args.get("env").and_then(|e| e.as_object());
+        let env_vars = args.get("cargo_env").and_then(|e| e.as_object());
         self.execute_command(cmd, "cargo update", env_vars).await
     }
 
-    async fn execute_command(&self, mut cmd: Command, command_name: &str, env_vars: Option<&serde_json::Map<String, Value>>) -> Result<String> {
+    async fn execute_command(
+        &self,
+        mut cmd: Command,
+        command_name: &str,
+        env_vars: Option<&serde_json::Map<String, Value>>,
+    ) -> Result<String> {
         // Apply environment variables if provided
         if let Some(env_map) = env_vars {
             for (key, value) in env_map {
-                if let Some(value_str) = value.as_str() {
-                    cmd.env(key, value_str);
-                }
+                let value: String = match value {
+                    Value::Bool(true) => "true".into(),
+                    Value::Bool(false) => "false".into(),
+                    Value::Number(number) => number.to_string(),
+                    Value::String(string) => string.into(),
+                    Value::Array(_) => return Err(anyhow!("arrays not supported in env map")),
+                    Value::Object(_) => {
+                        return Err(anyhow!("nested objects not supported in env map"));
+                    }
+                    Value::Null => "".into(),
+                };
+                cmd.env(key, value);
             }
         }
 
         let output = cmd.output().await?;
+        let string_command = display_command(cmd);
+
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         let mut result = format!("=== {command_name} ===\n");
+        result.push_str(&format!("> {string_command}\n\n"));
 
         if output.status.success() {
             result.push_str("✅ Command completed successfully\n\n");
@@ -791,8 +548,8 @@ async fn main() -> Result<()> {
         Some("mcp") | None => {
             // Continue with normal processing
             match cli.command {
-                Some(Commands::Serve) | None => {
-                    let server = CargoMcpServer::new();
+                None | Some(Commands::Serve) => {
+                    let server = CargoMcpServer::new(cli.default_toolchain);
                     run_server(server).await?;
                 }
             }
@@ -847,4 +604,32 @@ async fn run_server(server: CargoMcpServer) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn display_command(cmd: Command) -> String {
+    let cmd = cmd.into_std();
+    let program = cmd.get_program().to_string_lossy();
+    let env = cmd
+        .get_envs()
+        .map(|(k, v)| match v {
+            Some(v) => format!("{}={}", shell_escape(k), shell_escape(v)),
+            None => shell_escape(k),
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+    let args = cmd
+        .get_args()
+        .map(shell_escape)
+        .collect::<Vec<_>>()
+        .join(" ");
+    format!("{env} {program} {args}")
+}
+
+fn shell_escape(arg: &std::ffi::OsStr) -> String {
+    let s = arg.to_string_lossy();
+    if s.contains(' ') || s.contains('"') || s.contains('\'') || s.contains('\\') {
+        format!("{s:?}") // Uses Rust's debug escaping, similar to shell-escaped strings
+    } else {
+        s.to_string()
+    }
 }
