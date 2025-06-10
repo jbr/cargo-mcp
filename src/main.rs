@@ -101,9 +101,9 @@ impl CargoMcpServer {
                             "type": "string",
                             "description": "Optional package name to check (for workspaces)"
                         },
-                        "env": {
+                        "cargo_env": {
                             "type": "object",
-                            "description": "Optional environment variables to set",
+                            "description": "Optional environment variables to set for the cargo command",
                             "additionalProperties": {
                                 "type": "string"
                             }
@@ -131,9 +131,9 @@ impl CargoMcpServer {
                             "description": "Apply suggested fixes automatically",
                             "default": false
                         },
-                        "env": {
+                        "cargo_env": {
                             "type": "object",
-                            "description": "Optional environment variables to set",
+                            "description": "Optional environment variables to set for the cargo command",
                             "additionalProperties": {
                                 "type": "string"
                             }
@@ -160,9 +160,9 @@ impl CargoMcpServer {
                             "type": "string",
                             "description": "Optional specific test name to run"
                         },
-                        "env": {
+                        "cargo_env": {
                             "type": "object",
-                            "description": "Optional environment variables to set",
+                            "description": "Optional environment variables to set for the cargo command",
                             "additionalProperties": {
                                 "type": "string"
                             }
@@ -182,9 +182,9 @@ impl CargoMcpServer {
                             "type": "string",
                             "description": "Path to the Rust project directory"
                         },
-                        "env": {
+                        "cargo_env": {
                             "type": "object",
-                            "description": "Optional environment variables to set",
+                            "description": "Optional environment variables to set for the cargo command",
                             "additionalProperties": {
                                 "type": "string"
                             }
@@ -212,9 +212,9 @@ impl CargoMcpServer {
                             "description": "Build in release mode",
                             "default": false
                         },
-                        "env": {
+                        "cargo_env": {
                             "type": "object",
-                            "description": "Optional environment variables to set",
+                            "description": "Optional environment variables to set for the cargo command",
                             "additionalProperties": {
                                 "type": "string"
                             }
@@ -245,9 +245,9 @@ impl CargoMcpServer {
                             "type": "string",
                             "description": "Optional baseline name for comparison"
                         },
-                        "env": {
+                        "cargo_env": {
                             "type": "object",
-                            "description": "Optional environment variables to set",
+                            "description": "Optional environment variables to set for the cargo command",
                             "additionalProperties": {
                                 "type": "string"
                             }
@@ -294,9 +294,9 @@ impl CargoMcpServer {
                             },
                             "description": "Optional features to enable"
                         },
-                        "env": {
+                        "cargo_env": {
                             "type": "object",
-                            "description": "Optional environment variables to set",
+                            "description": "Optional environment variables to set for the cargo command",
                             "additionalProperties": {
                                 "type": "string"
                             }
@@ -331,9 +331,9 @@ impl CargoMcpServer {
                             "description": "Remove from development dependencies",
                             "default": false
                         },
-                        "env": {
+                        "cargo_env": {
                             "type": "object",
-                            "description": "Optional environment variables to set",
+                            "description": "Optional environment variables to set for the cargo command",
                             "additionalProperties": {
                                 "type": "string"
                             }
@@ -368,9 +368,9 @@ impl CargoMcpServer {
                             "description": "Perform a dry run to see what would be updated",
                             "default": false
                         },
-                        "env": {
+                        "cargo_env": {
                             "type": "object",
-                            "description": "Optional environment variables to set",
+                            "description": "Optional environment variables to set for the cargo command",
                             "additionalProperties": {
                                 "type": "string"
                             }
@@ -551,7 +551,7 @@ impl CargoMcpServer {
             cmd.args(["--package", package]);
         }
 
-        let env_vars = args.get("env").and_then(|e| e.as_object());
+        let env_vars = args.get("cargo_env").and_then(|e| e.as_object());
         self.execute_command(cmd, "cargo check", env_vars).await
     }
 
@@ -571,7 +571,7 @@ impl CargoMcpServer {
         cmd.arg("-D");
         cmd.arg("warnings");
 
-        let env_vars = args.get("env").and_then(|e| e.as_object());
+        let env_vars = args.get("cargo_env").and_then(|e| e.as_object());
         self.execute_command(cmd, "cargo clippy", env_vars).await
     }
 
@@ -595,7 +595,7 @@ impl CargoMcpServer {
         let mut cmd = Command::new("cargo");
         cmd.args(["fmt", "--check"]).current_dir(&project_path);
 
-        let env_vars = args.get("env").and_then(|e| e.as_object());
+        let env_vars = args.get("cargo_env").and_then(|e| e.as_object());
         self.execute_command(cmd, "cargo fmt --check", env_vars).await
     }
 
@@ -615,7 +615,7 @@ impl CargoMcpServer {
             cmd.arg("--release");
         }
 
-        let env_vars = args.get("env").and_then(|e| e.as_object());
+        let env_vars = args.get("cargo_env").and_then(|e| e.as_object());
         self.execute_command(cmd, "cargo build", env_vars).await
     }
 
@@ -635,7 +635,7 @@ impl CargoMcpServer {
             cmd.args(["--", "--save-baseline", baseline]);
         }
 
-        let env_vars = args.get("env").and_then(|e| e.as_object());
+        let env_vars = args.get("cargo_env").and_then(|e| e.as_object());
         self.execute_command(cmd, "cargo bench", env_vars).await
     }
 
@@ -681,7 +681,7 @@ impl CargoMcpServer {
             return Err(anyhow!("No dependencies specified"));
         }
 
-        let env_vars = args.get("env").and_then(|e| e.as_object());
+        let env_vars = args.get("cargo_env").and_then(|e| e.as_object());
         self.execute_command(cmd, "cargo add", env_vars).await
     }
 
@@ -708,7 +708,7 @@ impl CargoMcpServer {
             return Err(anyhow!("No dependencies specified"));
         }
 
-        let env_vars = args.get("env").and_then(|e| e.as_object());
+        let env_vars = args.get("cargo_env").and_then(|e| e.as_object());
         self.execute_command(cmd, "cargo remove", env_vars).await
     }
 
@@ -737,7 +737,7 @@ impl CargoMcpServer {
             }
         }
 
-        let env_vars = args.get("env").and_then(|e| e.as_object());
+        let env_vars = args.get("cargo_env").and_then(|e| e.as_object());
         self.execute_command(cmd, "cargo update", env_vars).await
     }
 
