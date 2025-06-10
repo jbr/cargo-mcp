@@ -16,6 +16,12 @@ This MCP server exposes the following Cargo tools:
 - **cargo_test** - Execute project tests
 - **cargo_fmt_check** - Check code formatting without modifying files
 - **cargo_build** - Build the project (debug or release mode)
+- **cargo_bench** - Run benchmarks
+- **cargo_add** - Add dependencies to Cargo.toml
+- **cargo_remove** - Remove dependencies from Cargo.toml
+- **cargo_update** - Update dependencies
+
+All tools support setting custom environment variables via the `env` parameter.
 
 ## Installation
 
@@ -40,6 +46,18 @@ Add this to your Claude Desktop MCP configuration:
 
 ## Tool Usage
 
+All tools accept an optional `env` parameter to set environment variables for the cargo command:
+
+```json
+{
+  "env": {
+    "CARGO_LOG": "debug",
+    "RUSTFLAGS": "-C target-cpu=native",
+    "CARGO_TARGET_DIR": "/tmp/my-target"
+  }
+}
+```
+
 ### cargo_check
 Verify that your Rust code compiles:
 ```json
@@ -47,7 +65,10 @@ Verify that your Rust code compiles:
   "name": "cargo_check",
   "arguments": {
     "path": "/path/to/rust/project",
-    "package": "optional-package-name"
+    "package": "optional-package-name",
+    "env": {
+      "CARGO_LOG": "debug"
+    }
   }
 }
 ```
@@ -60,7 +81,10 @@ Get linting suggestions:
   "arguments": {
     "path": "/path/to/rust/project",
     "package": "optional-package-name",
-    "fix": false
+    "fix": false,
+    "env": {
+      "RUSTFLAGS": "-D warnings"
+    }
   }
 }
 ```
@@ -73,7 +97,10 @@ Run tests:
   "arguments": {
     "path": "/path/to/rust/project", 
     "package": "optional-package-name",
-    "test_name": "optional-specific-test"
+    "test_name": "optional-specific-test",
+    "env": {
+      "RUST_TEST_THREADS": "1"
+    }
   }
 }
 ```
@@ -84,7 +111,10 @@ Check formatting:
 {
   "name": "cargo_fmt_check",
   "arguments": {
-    "path": "/path/to/rust/project"
+    "path": "/path/to/rust/project",
+    "env": {
+      "CARGO_LOG": "info"
+    }
   }
 }
 ```
@@ -97,10 +127,91 @@ Build the project:
   "arguments": {
     "path": "/path/to/rust/project",
     "package": "optional-package-name", 
-    "release": false
+    "release": false,
+    "env": {
+      "RUSTFLAGS": "-C target-cpu=native"
+    }
   }
 }
 ```
+
+### cargo_bench
+Run benchmarks:
+```json
+{
+  "name": "cargo_bench",
+  "arguments": {
+    "path": "/path/to/rust/project",
+    "package": "optional-package-name",
+    "bench_name": "optional-specific-benchmark",
+    "baseline": "optional-baseline-name",
+    "env": {
+      "CARGO_LOG": "debug"
+    }
+  }
+}
+```
+
+### cargo_add
+Add dependencies:
+```json
+{
+  "name": "cargo_add",
+  "arguments": {
+    "path": "/path/to/rust/project",
+    "dependencies": ["serde", "tokio@1.0"],
+    "dev": false,
+    "optional": false,
+    "features": ["derive"],
+    "env": {
+      "CARGO_LOG": "info"
+    }
+  }
+}
+```
+
+### cargo_remove
+Remove dependencies:
+```json
+{
+  "name": "cargo_remove",
+  "arguments": {
+    "path": "/path/to/rust/project",
+    "dependencies": ["unused-dep"],
+    "dev": false,
+    "env": {
+      "CARGO_LOG": "info"
+    }
+  }
+}
+```
+
+### cargo_update
+Update dependencies:
+```json
+{
+  "name": "cargo_update",
+  "arguments": {
+    "path": "/path/to/rust/project",
+    "package": "optional-package-name",
+    "dependencies": ["specific-dep-to-update"],
+    "dry_run": false,
+    "env": {
+      "CARGO_LOG": "debug"
+    }
+  }
+}
+```
+
+## Environment Variables
+
+The `env` parameter allows you to set environment variables that will be passed to the cargo command. Common useful environment variables include:
+
+- **CARGO_LOG** - Set logging level (`trace`, `debug`, `info`, `warn`, `error`)
+- **RUSTFLAGS** - Pass flags to the Rust compiler (e.g., `-C target-cpu=native`)
+- **CARGO_TARGET_DIR** - Override the target directory for build artifacts
+- **RUST_TEST_THREADS** - Control test parallelism
+- **CARGO_INCREMENTAL** - Enable/disable incremental compilation
 
 ## Safety Features
 
@@ -108,6 +219,7 @@ Build the project:
 - Path validation ensures the target is a valid Rust project (has Cargo.toml)
 - No arbitrary command execution
 - All commands run in the specified project directory
+- Environment variables are safely passed through to cargo processes
 
 ## Development
 
