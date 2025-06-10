@@ -86,337 +86,8 @@ struct CargoMcpServer {
 
 impl CargoMcpServer {
     fn new() -> Self {
-        let tools = vec![
-            Tool {
-                name: "cargo_check".to_string(),
-                description: "Run cargo check to verify the code compiles".to_string(),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Path to the Rust project directory"
-                        },
-                        "package": {
-                            "type": "string",
-                            "description": "Optional package name to check (for workspaces)"
-                        },
-                        "toolchain": {
-                            "type": "string",
-                            "description": "Optional Rust toolchain to use (e.g., 'stable', 'nightly', '1.70.0')"
-                        },
-                        "cargo_env": {
-                            "type": "object",
-                            "description": "Optional environment variables to set for the cargo command",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "required": ["path"]
-                }),
-            },
-            Tool {
-                name: "cargo_clippy".to_string(),
-                description: "Run cargo clippy for linting suggestions".to_string(),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Path to the Rust project directory"
-                        },
-                        "package": {
-                            "type": "string",
-                            "description": "Optional package name to lint (for workspaces)"
-                        },
-                        "toolchain": {
-                            "type": "string",
-                            "description": "Optional Rust toolchain to use (e.g., 'stable', 'nightly', '1.70.0')"
-                        },
-                        "fix": {
-                            "type": "boolean",
-                            "description": "Apply suggested fixes automatically",
-                            "default": false
-                        },
-                        "cargo_env": {
-                            "type": "object",
-                            "description": "Optional environment variables to set for the cargo command",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "required": ["path"]
-                }),
-            },
-            Tool {
-                name: "cargo_test".to_string(),
-                description: "Run cargo test to execute tests".to_string(),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Path to the Rust project directory"
-                        },
-                        "package": {
-                            "type": "string",
-                            "description": "Optional package name to test (for workspaces)"
-                        },
-                        "toolchain": {
-                            "type": "string",
-                            "description": "Optional Rust toolchain to use (e.g., 'stable', 'nightly', '1.70.0')"
-                        },
-                        "test_name": {
-                            "type": "string",
-                            "description": "Optional specific test name to run"
-                        },
-                        "cargo_env": {
-                            "type": "object",
-                            "description": "Optional environment variables to set for the cargo command",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "required": ["path"]
-                }),
-            },
-            Tool {
-                name: "cargo_fmt_check".to_string(),
-                description: "Check if code is properly formatted without modifying files"
-                    .to_string(),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Path to the Rust project directory"
-                        },
-                        "toolchain": {
-                            "type": "string",
-                            "description": "Optional Rust toolchain to use (e.g., 'stable', 'nightly', '1.70.0')"
-                        },
-                        "cargo_env": {
-                            "type": "object",
-                            "description": "Optional environment variables to set for the cargo command",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "required": ["path"]
-                }),
-            },
-            Tool {
-                name: "cargo_build".to_string(),
-                description: "Build the project with cargo build".to_string(),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Path to the Rust project directory"
-                        },
-                        "package": {
-                            "type": "string",
-                            "description": "Optional package name to build (for workspaces)"
-                        },
-                        "toolchain": {
-                            "type": "string",
-                            "description": "Optional Rust toolchain to use (e.g., 'stable', 'nightly', '1.70.0')"
-                        },
-                        "release": {
-                            "type": "boolean",
-                            "description": "Build in release mode",
-                            "default": false
-                        },
-                        "cargo_env": {
-                            "type": "object",
-                            "description": "Optional environment variables to set for the cargo command",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "required": ["path"]
-                }),
-            },
-            Tool {
-                name: "cargo_bench".to_string(),
-                description: "Run cargo bench to execute benchmarks".to_string(),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Path to the Rust project directory"
-                        },
-                        "package": {
-                            "type": "string",
-                            "description": "Optional package name to benchmark (for workspaces)"
-                        },
-                        "toolchain": {
-                            "type": "string",
-                            "description": "Optional Rust toolchain to use (e.g., 'stable', 'nightly', '1.70.0')"
-                        },
-                        "bench_name": {
-                            "type": "string",
-                            "description": "Optional specific benchmark name to run"
-                        },
-                        "baseline": {
-                            "type": "string",
-                            "description": "Optional baseline name for comparison"
-                        },
-                        "cargo_env": {
-                            "type": "object",
-                            "description": "Optional environment variables to set for the cargo command",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "required": ["path"]
-                }),
-            },
-            Tool {
-                name: "cargo_add".to_string(),
-                description: "Add dependencies to Cargo.toml using cargo add".to_string(),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Path to the Rust project directory"
-                        },
-                        "package": {
-                            "type": "string",
-                            "description": "Optional package name (for workspaces)"
-                        },
-                        "toolchain": {
-                            "type": "string",
-                            "description": "Optional Rust toolchain to use (e.g., 'stable', 'nightly', '1.70.0')"
-                        },
-                        "dependencies": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            },
-                            "description": "List of dependencies to add (e.g., ['serde', 'tokio@1.0'])"
-                        },
-                        "dev": {
-                            "type": "boolean",
-                            "description": "Add as development dependencies",
-                            "default": false
-                        },
-                        "optional": {
-                            "type": "boolean",
-                            "description": "Add as optional dependencies",
-                            "default": false
-                        },
-                        "features": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            },
-                            "description": "Optional features to enable"
-                        },
-                        "cargo_env": {
-                            "type": "object",
-                            "description": "Optional environment variables to set for the cargo command",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "required": ["path", "dependencies"]
-                }),
-            },
-            Tool {
-                name: "cargo_remove".to_string(),
-                description: "Remove dependencies from Cargo.toml using cargo remove".to_string(),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Path to the Rust project directory"
-                        },
-                        "package": {
-                            "type": "string",
-                            "description": "Optional package name (for workspaces)"
-                        },
-                        "toolchain": {
-                            "type": "string",
-                            "description": "Optional Rust toolchain to use (e.g., 'stable', 'nightly', '1.70.0')"
-                        },
-                        "dependencies": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            },
-                            "description": "List of dependencies to remove"
-                        },
-                        "dev": {
-                            "type": "boolean",
-                            "description": "Remove from development dependencies",
-                            "default": false
-                        },
-                        "cargo_env": {
-                            "type": "object",
-                            "description": "Optional environment variables to set for the cargo command",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "required": ["path", "dependencies"]
-                }),
-            },
-            Tool {
-                name: "cargo_update".to_string(),
-                description: "Update dependencies using cargo update".to_string(),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Path to the Rust project directory"
-                        },
-                        "package": {
-                            "type": "string",
-                            "description": "Optional package name (for workspaces)"
-                        },
-                        "toolchain": {
-                            "type": "string",
-                            "description": "Optional Rust toolchain to use (e.g., 'stable', 'nightly', '1.70.0')"
-                        },
-                        "dependencies": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            },
-                            "description": "Optional specific dependencies to update"
-                        },
-                        "dry_run": {
-                            "type": "boolean",
-                            "description": "Perform a dry run to see what would be updated",
-                            "default": false
-                        },
-                        "cargo_env": {
-                            "type": "object",
-                            "description": "Optional environment variables to set for the cargo command",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "required": ["path"]
-                }),
-            },
-        ];
-
+        let tools = serde_json::from_str(include_str!("../tools_schema.json"))
+            .expect("tools_schema.json was not valid");
         Self { tools }
     }
 
@@ -579,7 +250,7 @@ impl CargoMcpServer {
         }
     }
 
-        /// Create a Command for cargo operations, optionally using rustup with a specified toolchain
+    /// Create a Command for cargo operations, optionally using rustup with a specified toolchain
     fn create_cargo_command(&self, cargo_args: &[&str], toolchain: Option<&str>) -> Command {
         if let Some(toolchain) = toolchain {
             let mut cmd = Command::new("rustup");
@@ -592,7 +263,6 @@ impl CargoMcpServer {
             cmd
         }
     }
-
 
     async fn run_cargo_check(&self, project_path: PathBuf, args: &Value) -> Result<String> {
         let toolchain = args.get("toolchain").and_then(|t| t.as_str());
@@ -651,7 +321,8 @@ impl CargoMcpServer {
         cmd.current_dir(&project_path);
 
         let env_vars = args.get("cargo_env").and_then(|e| e.as_object());
-        self.execute_command(cmd, "cargo fmt --check", env_vars).await
+        self.execute_command(cmd, "cargo fmt --check", env_vars)
+            .await
     }
 
     async fn run_cargo_build(&self, project_path: PathBuf, args: &Value) -> Result<String> {
@@ -801,7 +472,12 @@ impl CargoMcpServer {
         self.execute_command(cmd, "cargo update", env_vars).await
     }
 
-    async fn execute_command(&self, mut cmd: Command, command_name: &str, env_vars: Option<&serde_json::Map<String, Value>>) -> Result<String> {
+    async fn execute_command(
+        &self,
+        mut cmd: Command,
+        command_name: &str,
+        env_vars: Option<&serde_json::Map<String, Value>>,
+    ) -> Result<String> {
         // Apply environment variables if provided
         if let Some(env_map) = env_vars {
             for (key, value) in env_map {
