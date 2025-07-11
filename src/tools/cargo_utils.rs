@@ -40,7 +40,7 @@ pub fn execute_cargo_command(
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
 
-    let mut result = format!("=== {} ===\n", command_name);
+    let mut result = format!("=== {command_name} ===\n");
     result.push_str(&format!(
         "📁 Working directory: {}\n",
         project_path.display()
@@ -93,14 +93,14 @@ fn format_command(cmd: &Command) -> String {
     if args.is_empty() {
         program.to_string()
     } else {
-        format!("{} {}", program, args)
+        format!("{program} {args}")
     }
 }
 
 /// Simple shell escaping for display purposes
 fn shell_escape(arg: &str) -> String {
     if arg.contains(' ') || arg.contains('"') || arg.contains('\'') || arg.contains('\\') {
-        format!("{:?}", arg) // Uses Rust's debug escaping
+        format!("{arg:?}") // Uses Rust's debug escaping
     } else {
         arg.to_string()
     }

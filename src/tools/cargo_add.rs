@@ -131,12 +131,11 @@ impl Tool<CargoTools> for CargoAdd {
 
         let features_str;
 
-        if let Some(ref features) = self.features {
-            if !features.is_empty() {
+        if let Some(ref features) = self.features
+            && !features.is_empty() {
                 features_str = features.join(",");
                 args.extend_from_slice(&["--features", &features_str]);
             }
-        }
 
         // Add the dependencies
         for dep in &self.dependencies {
