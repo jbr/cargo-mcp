@@ -1,6 +1,9 @@
 mod state;
 mod tools;
 
+#[cfg(test)]
+mod tests;
+
 use anyhow::Result;
 use mcplease::server_info;
 use state::CargoTools;
