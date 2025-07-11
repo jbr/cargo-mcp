@@ -1,5 +1,5 @@
 use crate::state::CargoTools;
-use crate::tools::cargo_utils::{create_cargo_command, execute_cargo_command, parse_cargo_env};
+use crate::tools::cargo_utils::{create_cargo_command, execute_cargo_command};
 use anyhow::Result;
 use mcplease::{
     traits::{Tool, WithExamples},
@@ -82,19 +82,13 @@ impl Tool<CargoTools> for CargoCheck {
             .toolchain
             .or_else(|| state.get_default_toolchain(None).unwrap_or(None));
 
-        // Combine session env vars with command-specific env vars
-        let mut env_vars = state.get_cargo_env(None)?.clone();
-        if let Some(cmd_env) = &self.cargo_env {
-            env_vars.extend(cmd_env.clone());
-        }
-
         let mut args = vec!["check"];
 
         if let Some(ref package) = self.package {
             args.extend_from_slice(&["--package", package]);
         }
 
-        let cmd = create_cargo_command(&args, toolchain.as_deref(), Some(&env_vars));
+        let cmd = create_cargo_command(&args, toolchain.as_deref(), self.cargo_env.as_ref());
         execute_cargo_command(cmd, &project_path, "cargo check")
     }
 }

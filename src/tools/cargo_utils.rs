@@ -1,5 +1,4 @@
 use anyhow::Result;
-use serde_json::Value;
 use std::{collections::HashMap, path::PathBuf, process::Command};
 
 /// Helper to create a cargo command with optional toolchain and environment variables
@@ -105,26 +104,4 @@ fn shell_escape(arg: &str) -> String {
     } else {
         arg.to_string()
     }
-}
-
-/// Parse cargo environment variables from JSON arguments
-pub fn parse_cargo_env(args: &Value) -> Option<HashMap<String, String>> {
-    args.get("cargo_env")
-        .and_then(|env| env.as_object())
-        .map(|env_map| {
-            env_map
-                .iter()
-                .filter_map(|(key, value)| {
-                    let value_str = match value {
-                        Value::Bool(true) => "true".to_string(),
-                        Value::Bool(false) => "false".to_string(),
-                        Value::Number(number) => number.to_string(),
-                        Value::String(string) => string.clone(),
-                        Value::Null => "".to_string(),
-                        _ => return None, // Skip arrays and objects
-                    };
-                    Some((key.clone(), value_str))
-                })
-                .collect()
-        })
 }

@@ -19,8 +19,6 @@ pub struct SharedContextData {
 pub struct CargoSessionData {
     /// Default toolchain to use for cargo commands (e.g., "stable", "nightly", "1.70.0")
     default_toolchain: Option<String>,
-    /// Environment variables to apply to cargo commands
-    cargo_env: std::collections::HashMap<String, String>,
 }
 
 /// Cargo tools with session support
@@ -62,11 +60,23 @@ impl CargoTools {
         shared_path.push("shared-context.json");
         let shared_context_store = SessionStore::new(Some(shared_path))?;
 
-        Ok(Self {
+        let mut tools = Self {
             session_store,
             shared_context_store,
             default_session_id: "default",
-        })
+        };
+
+        // Check for default toolchain from environment variable
+        if let Ok(toolchain) = std::env::var("CARGO_MCP_DEFAULT_TOOLCHAIN") {
+            if !toolchain.is_empty() {
+                log::info!(
+                    "Setting default toolchain from CARGO_MCP_DEFAULT_TOOLCHAIN: {toolchain}"
+                );
+                tools.set_default_toolchain(Some(toolchain), None)?;
+            }
+        }
+
+        Ok(tools)
     }
 
     /// Get context (working directory) for a session
@@ -82,27 +92,6 @@ impl CargoTools {
         self.shared_context_store.update(session_id, |data| {
             data.context_path = Some(path);
         })
-    }
-
-    /// Resolve a path relative to session context if needed
-    pub(crate) fn resolve_path(
-        &mut self,
-        path_str: &str,
-        session_id: Option<&str>,
-    ) -> Result<PathBuf> {
-        let path = PathBuf::from(&*shellexpand::tilde(path_str));
-
-        if path.is_absolute() {
-            return Ok(path);
-        }
-
-        let session_id = session_id.unwrap_or_else(|| self.default_session_id());
-        match self.get_context(Some(session_id))? {
-            Some(context) => Ok(context.join(path_str)),
-            None => Err(anyhow!(
-                "No working directory set for session `{session_id}`. Use set_working_directory first or provide an absolute path.",
-            )),
-        }
     }
 
     /// Get cargo-specific session data
@@ -134,26 +123,6 @@ impl CargoTools {
     ) -> Result<()> {
         self.update_cargo_session(session_id, |data| {
             data.default_toolchain = toolchain;
-        })
-    }
-
-    /// Get cargo environment variables for this session
-    pub fn get_cargo_env(
-        &mut self,
-        session_id: Option<&str>,
-    ) -> Result<&std::collections::HashMap<String, String>> {
-        let session_data = self.get_cargo_session(session_id)?;
-        Ok(&session_data.cargo_env)
-    }
-
-    /// Set cargo environment variables for this session
-    pub fn set_cargo_env(
-        &mut self,
-        env: std::collections::HashMap<String, String>,
-        session_id: Option<&str>,
-    ) -> Result<()> {
-        self.update_cargo_session(session_id, |data| {
-            data.cargo_env = env;
         })
     }
 
