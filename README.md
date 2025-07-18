@@ -16,6 +16,8 @@ This MCP server exposes the following Cargo tools:
 - **cargo_remove** - Remove dependencies from Cargo.toml
 - **cargo_update** - Update dependencies
 - **cargo_clean** - Remove artifacts that cargo has generated in the past
+- **cargo_run** - Run a binary or example
+
 
 All tools support setting custom environment variables via the `cargo_env` parameter and rust
 toolchain with the `toolchain` parameter.
