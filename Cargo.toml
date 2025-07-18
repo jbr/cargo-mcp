@@ -1,6 +1,6 @@
 [package]
 name = "cargo-mcp"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["Jacob Rothstein <hi@jbr.me>", "Anthropic Claude Sonnet 4"]
 edition = "2024"
 description = "mcp server for cargo commands"
