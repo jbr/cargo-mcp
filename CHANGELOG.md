@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0](https://github.com/jbr/cargo-mcp/compare/v0.1.1...v0.2.0) - 2025-07-18
+
+### Added
+
+- add cargo_run and add no_capture to cargo_test
+- don't persist cargo env
+- [**breaking**] rewrite to use mcplease
+
+### Other
+
+- Merge pull request #13 from jbr/mcplease-rewrite
+- cargo clippy
+- add a smoke test for tools list
+
 ## [0.1.1](https://github.com/jbr/cargo-mcp/compare/v0.1.0...v0.1.1) - 2025-06-10
 
 ### Added
