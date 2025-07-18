@@ -1,8 +1,5 @@
 use crate::state::CargoTools;
-
-// Import all the tool modules
 mod cargo_utils;
-
 mcplease::tools!(
     CargoTools,
     (CargoCheck, cargo_check, "cargo_check"),
@@ -19,5 +16,6 @@ mcplease::tools!(
         SetWorkingDirectory,
         set_working_directory,
         "set_working_directory"
-    )
+    ),
+    (CargoRun, cargo_run, "cargo_run")
 );
