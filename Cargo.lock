@@ -334,9 +334,9 @@ checksum = "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
 
 [[package]]
 name = "mcplease"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28df8a0342a6c819cbdf0a63bd90be7629206e3a57c7bacdc2fdea916cee47c2"
+checksum = "e9f0d2e2c19304b9b34b92682176fb2dbfdd56906cefcdda8074c488a0aed176"
 dependencies = [
  "anyhow",
  "clap",
