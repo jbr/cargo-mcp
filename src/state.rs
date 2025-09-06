@@ -67,11 +67,11 @@ impl CargoTools {
         };
 
         // Check for default toolchain from environment variable
-        if let Ok(toolchain) = std::env::var("CARGO_MCP_DEFAULT_TOOLCHAIN")
-            && !toolchain.is_empty()
-        {
-            log::info!("Setting default toolchain from CARGO_MCP_DEFAULT_TOOLCHAIN: {toolchain}");
-            tools.set_default_toolchain(Some(toolchain), None)?;
+        if let Ok(toolchain) = std::env::var("CARGO_MCP_DEFAULT_TOOLCHAIN") {
+            if !toolchain.is_empty() {
+                log::info!("Setting default toolchain from CARGO_MCP_DEFAULT_TOOLCHAIN: {toolchain}");
+                tools.set_default_toolchain(Some(toolchain), None)?;
+            }
         }
 
         Ok(tools)

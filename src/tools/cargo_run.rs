@@ -150,12 +150,12 @@ impl Tool<CargoTools> for CargoRun {
         }
 
         // Add separator and binary arguments if provided
-        if let Some(ref binary_args) = self.args
-            && !binary_args.is_empty()
-        {
-            args.push("--");
-            for arg in binary_args {
-                args.push(arg);
+        if let Some(ref binary_args) = self.args {
+            if !binary_args.is_empty() {
+                args.push("--");
+                for arg in binary_args {
+                    args.push(arg);
+                }
             }
         }
 
