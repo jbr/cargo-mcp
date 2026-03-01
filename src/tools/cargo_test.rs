@@ -27,6 +27,12 @@ pub struct CargoTest {
     #[arg(long)]
     pub no_capture: Option<bool>,
 
+    /// Use this when you only need to check whether tests pass or fail.
+    /// Displays one character per test instead of one line, producing compact output.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[arg(long)]
+    pub quiet: Option<bool>,
+
     /// Optional Rust toolchain to use (e.g., 'stable', 'nightly', '1.70.0')
     #[serde(skip_serializing_if = "Option::is_none")]
     #[arg(long)]
@@ -79,6 +85,13 @@ impl WithExamples for CargoTest {
                     ..Self::default()
                 },
             },
+            Example {
+                description: "Run all tests with compact output (one char per test)",
+                item: Self {
+                    quiet: Some(true),
+                    ..Self::default()
+                },
+            },
         ]
     }
 }
@@ -93,6 +106,10 @@ impl Tool<CargoTools> for CargoTest {
             .or_else(|| state.get_default_toolchain(None).unwrap_or(None));
 
         let mut args = vec!["test"];
+
+        if self.quiet.unwrap_or(false) {
+            args.push("--quiet");
+        }
 
         if let Some(ref package) = self.package {
             args.extend_from_slice(&["--package", package]);

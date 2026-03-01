@@ -27,6 +27,12 @@ pub struct CargoBench {
     #[arg(long)]
     pub baseline: Option<String>,
 
+    /// Display one character per benchmark instead of one line.
+    /// Produces compact output with result summary.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[arg(long)]
+    pub quiet: Option<bool>,
+
     /// Optional Rust toolchain to use (e.g., 'stable', 'nightly', '1.70.0')
     #[serde(skip_serializing_if = "Option::is_none")]
     #[arg(long)]
@@ -47,6 +53,7 @@ impl WithExamples for CargoBench {
                     package: None,
                     bench_name: None,
                     baseline: None,
+                    quiet: None,
                     toolchain: None,
                     cargo_env: None,
                 },
@@ -57,6 +64,7 @@ impl WithExamples for CargoBench {
                     package: None,
                     bench_name: Some("my_benchmark".into()),
                     baseline: None,
+                    quiet: None,
                     toolchain: None,
                     cargo_env: None,
                 },
@@ -67,6 +75,7 @@ impl WithExamples for CargoBench {
                     package: Some("my-lib".into()),
                     bench_name: None,
                     baseline: None,
+                    quiet: None,
                     toolchain: None,
                     cargo_env: None,
                 },
@@ -77,6 +86,18 @@ impl WithExamples for CargoBench {
                     package: None,
                     bench_name: None,
                     baseline: Some("main".into()),
+                    quiet: None,
+                    toolchain: None,
+                    cargo_env: None,
+                },
+            },
+            Example {
+                description: "Run all benchmarks with compact output",
+                item: Self {
+                    package: None,
+                    bench_name: None,
+                    baseline: None,
+                    quiet: Some(true),
                     toolchain: None,
                     cargo_env: None,
                 },
@@ -95,7 +116,11 @@ impl Tool<CargoTools> for CargoBench {
 
 
         let mut args = vec!["bench"];
-        
+
+        if self.quiet.unwrap_or(false) {
+            args.push("--quiet");
+        }
+
         if let Some(ref package) = self.package {
             args.extend_from_slice(&["--package", package]);
         }
